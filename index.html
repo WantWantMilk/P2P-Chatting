@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>离线P2P聊天室 · 免服务器直连</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #0b1120;
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+            padding: 16px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 主卡片 */
+        .app-card {
+            max-width: 650px;
+            width: 100%;
+            margin: auto;
+            background: rgba(18, 25, 40, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 48px;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        /* 头部 */
+        .header {
+            padding: 24px 28px 12px 28px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .header h1 {
+            font-size: 1.7rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #e0f2fe, #7aa2f7);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.3px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #1e2a3a;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            color: #9cb8d9;
+            margin-top: 8px;
+        }
+
+        /* 模式切换 */
+        .mode-tabs {
+            display: flex;
+            gap: 12px;
+            padding: 20px 28px 0 28px;
+            background: transparent;
+        }
+
+        .mode-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: none;
+            padding: 12px 0;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .mode-btn.active {
+            background: #2d3e5a;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 连接面板 */
+        .connection-panel {
+            padding: 24px 28px 32px 28px;
+            transition: 0.2s;
+        }
+
+        .panel-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #7e95b0;
+            margin-bottom: 16px;
+        }
+
+        .sdp-area {
+            background: #0f1822;
+            border-radius: 28px;
+            padding: 16px;
+            border: 1px solid #2a3a48;
+            margin-bottom: 20px;
+        }
+
+        .sdp-label {
+            font-size: 0.7rem;
+            color: #7e95b0;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        textarea {
+            width: 100%;
+            background: #03060b;
+            border: 1px solid #2a3a48;
+            border-radius: 20px;
+            padding: 14px;
+            color: #cbd5e6;
+            font-family: monospace;
+            font-size: 0.75rem;
+            resize: vertical;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: #5f8bc9;
+        }
+
+        .copy-btn, .action-btn {
+            background: #2c3e4e;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 12px;
+            width: 100%;
+        }
+
+        .copy-btn:active, .action-btn:active {
+            transform: scale(0.97);
+        }
+
+        .primary-btn {
+            background: #3b82f6;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+        }
+
+        .status-message {
+            background: #1e293b;
+            border-radius: 60px;
+            padding: 10px 16px;
+            font-size: 0.8rem;
+            text-align: center;
+            color: #bbd7fb;
+            margin-top: 20px;
+        }
+
+        .step-hint {
+            font-size: 0.7rem;
+            color: #6f8fae;
+            margin-top: 12px;
+            text-align: center;
+        }
+
+        /* 聊天区域 */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            height: 520px;
+            background: #0b111e;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 20px 8px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 24px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            animation: fadeSlide 0.2s ease;
+        }
+
+        .message.self {
+            background: #3b82f6;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 6px;
+        }
+
+        .message.other {
+            background: #1e2a3a;
+            color: #e2edff;
+            align-self: flex-start;
+            border-bottom-left-radius: 6px;
+        }
+
+        .message-info {
+            font-size: 0.65rem;
+            margin-bottom: 4px;
+            opacity: 0.7;
+        }
+
+        .system-tip {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #6c8eb0;
+            margin: 8px 0;
+            background: rgba(0,0,0,0.3);
+            padding: 6px;
+            border-radius: 40px;
+            width: fit-content;
+            align-self: center;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+            padding: 16px 20px 24px;
+            background: #0b111e;
+            border-top: 1px solid #1f2c3a;
+        }
+
+        .input-row input {
+            flex: 1;
+            background: #111b26;
+            border: 1px solid #2c3e50;
+            border-radius: 60px;
+            padding: 14px 18px;
+            color: white;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .input-row button {
+            background: #3b82f6;
+            border: none;
+            padding: 0 24px;
+            border-radius: 60px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+        }
+
+        @keyframes fadeSlide {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            transform: none;
+        }
+
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .icon-em {
+            font-size: 1.1rem;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-card" id="app">
+    <div class="header">
+        <h1>📡 离线P2P聊天室</h1>
+        <div class="badge">⚡ 零服务器 · 手动交换连接码</div>
+    </div>
+
+    <!-- 模式切换 -->
+    <div class="mode-tabs" id="modeTabs">
+        <button class="mode-btn active" data-mode="creator">✨ 创建房间 (发起者)</button>
+        <button class="mode-btn" data-mode="joiner">🔗 加入房间 (接收者)</button>
+    </div>
+
+    <!-- 连接配置区域（未连接时显示） -->
+    <div id="setupContainer">
+        <!-- 创建者面板 -->
+        <div id="creatorPanel" class="connection-panel">
+            <div class="panel-title">📝 第1步 · 生成邀请码 (Offer)</div>
+            <div class="sdp-area">
+                <div class="sdp-label">
+                    <span>🔑 你的连接码（复制发给对方）</span>
+                    <span id="offerReadyBadge" style="color:#2ecc71;">⚡待生成</span>
+                </div>
+                <textarea id="offerSdp" rows="4" readonly placeholder="点击下方【生成邀请码】后会出现一串代码..."></textarea>
+                <button id="genOfferBtn" class="action-btn primary-btn">🔘 生成邀请码 (Offer)</button>
+                <button id="copyOfferBtn" class="copy-btn" disabled>📋 复制邀请码</button>
+            </div>
+
+            <div class="panel-title" style="margin-top: 12px;">📥 第2步 · 粘贴对方的应答码 (Answer)</div>
+            <div class="sdp-area">
+                <textarea id="answerInput" rows="4" placeholder="对方生成应答码后，粘贴在这里..."></textarea>
+                <button id="submitAnswerBtn" class="action-btn" disabled>🔗 提交应答码 & 建立连接</button>
+            </div>
+            <div id="creatorStatus" class="status-message">⚙️ 等待生成邀请码...</div>
+        </div>
+
+        <!-- 加入者面板 (默认隐藏) -->
+        <div id="joinerPanel" class="connection-panel hidden">
+            <div class="panel-title">📨 第1步 · 粘贴对方的邀请码 (Offer)</div>
+            <div class="sdp-area">
+                <textarea id="offerInput" rows="4" placeholder="将对方生成的邀请码完整粘贴到这里..."></textarea>
+                <button id="processOfferBtn" class="action-btn primary-btn">🔗 解析邀请码 & 生成应答码</button>
+            </div>
+
+            <div class="panel-title" style="margin-top: 12px;">📤 第2步 · 复制应答码发给对方</div>
+            <div class="sdp-area">
+                <textarea id="answerSdp" rows="4" readonly placeholder="生成应答码后会显示在这里..."></textarea>
+                <button id="copyAnswerBtn" class="copy-btn" disabled>📋 复制应答码</button>
+            </div>
+            <div id="joinerStatus" class="status-message">🕊️ 等待粘贴对方邀请码...</div>
+        </div>
+    </div>
+
+    <!-- 聊天界面 (连接成功后显示) -->
+    <div id="chatContainer" class="chat-area hidden">
+        <div class="chat-messages" id="messageList">
+            <div class="system-tip">🔒 端到端加密 · 聊天记录仅存于本设备</div>
+        </div>
+        <div class="input-row">
+            <input type="text" id="chatInput" placeholder="输入消息..." autocomplete="off">
+            <button id="sendChatBtn">发送</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- DOM 元素 ----------
+    const modeBtns = document.querySelectorAll('.mode-btn');
+    const creatorPanel = document.getElementById('creatorPanel');
+    const joinerPanel = document.getElementById('joinerPanel');
+    const setupContainer = document.getElementById('setupContainer');
+    const chatContainer = document.getElementById('chatContainer');
+    
+    // 创建者相关
+    const genOfferBtn = document.getElementById('genOfferBtn');
+    const offerSdpText = document.getElementById('offerSdp');
+    const copyOfferBtn = document.getElementById('copyOfferBtn');
+    const answerInput = document.getElementById('answerInput');
+    const submitAnswerBtn = document.getElementById('submitAnswerBtn');
+    const creatorStatus = document.getElementById('creatorStatus');
+    
+    // 加入者相关
+    const offerInput = document.getElementById('offerInput');
+    const processOfferBtn = document.getElementById('processOfferBtn');
+    const answerSdpText = document.getElementById('answerSdp');
+    const copyAnswerBtn = document.getElementById('copyAnswerBtn');
+    const joinerStatus = document.getElementById('joinerStatus');
+    
+    // 聊天元素
+    const messageList = document.getElementById('messageList');
+    const chatInput = document.getElementById('chatInput');
+    const sendChatBtn = document.getElementById('sendChatBtn');
+    
+    // ---------- 全局状态 ----------
+    let currentMode = 'creator';   // 'creator' or 'joiner'
+    let peerConnection = null;
+    let dataChannel = null;
+    let isConnected = false;
+    let pendingIceCandidates = [];   // 备用（实际上我们等待完整SDP）
+    let targetRemoteDescSet = false;
+    
+    // 辅助函数：显示聊天消息
+    function appendChatMessage(sender, text, isSelf = false) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${isSelf ? 'self' : 'other'}`;
+        const time = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+        msgDiv.innerHTML = `
+            <div class="message-info">${escapeHtml(sender)} · ${time}</div>
+            <div>${escapeHtml(text)}</div>
+        `;
+        messageList.appendChild(msgDiv);
+        messageList.scrollTop = messageList.scrollHeight;
+    }
+    
+    function appendSystemMessage(text) {
+        const sysDiv = document.createElement('div');
+        sysDiv.className = 'system-tip';
+        sysDiv.innerText = text;
+        messageList.appendChild(sysDiv);
+        messageList.scrollTop = messageList.scrollHeight;
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    // 清理旧连接
+    function closeConnection() {
+        if (dataChannel) {
+            try { dataChannel.close(); } catch(e) {}
+            dataChannel = null;
+        }
+        if (peerConnection) {
+            try { peerConnection.close(); } catch(e) {}
+            peerConnection = null;
+        }
+        isConnected = false;
+        targetRemoteDescSet = false;
+    }
+    
+    // 切换到聊天界面
+    function enterChatRoom() {
+        setupContainer.classList.add('hidden');
+        chatContainer.classList.remove('hidden');
+        appendSystemMessage('✅ 连接已建立！现在可以发送消息了。');
+        isConnected = true;
+    }
+    
+    // ---------- 创建者流程 ----------
+    async function createOfferWithFullIce() {
+        closeConnection();
+        creatorStatus.innerText = '⏳ 正在创建连接邀请... 收集网络信息';
+        genOfferBtn.disabled = true;
+        copyOfferBtn.disabled = true;
+        
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        peerConnection = pc;
+        
+        // 创建数据通道
+        const dc = pc.createDataChannel('chat');
+        dataChannel = dc;
+        
+        dc.onopen = () => {
+            console.log('DataChannel 已打开');
+            appendSystemMessage('🔗 数据通道已打开，通信已加密');
+            enterChatRoom();
+        };
+        dc.onclose = () => {
+            console.log('DataChannel 关闭');
+            if (isConnected) appendSystemMessage('⚠️ 连接已断开');
+            isConnected = false;
+        };
+        dc.onerror = (err) => console.error('DataChannel error', err);
+        dc.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'msg') {
+                    appendChatMessage(data.from || '对方', data.text, false);
+                }
+            } catch(e) {
+                appendChatMessage('对方', event.data, false);
+            }
+        };
+        
+        // 收集ICE候选，直到gathering完成
+        let iceGatheringComplete = false;
+        let offerCreated = false;
+        
+        pc.onicecandidate = (event) => {
+            if (event.candidate === null) {
+                // 收集完成
+                iceGatheringComplete = true;
+                if (offerCreated && peerConnection && peerConnection.localDescription) {
+                    const fullSDP = peerConnection.localDescription.sdp;
+                    offerSdpText.value = fullSDP;
+                    creatorStatus.innerText = '✅ 邀请码已生成！复制并发给对方，等待对方应答。';
+                    copyOfferBtn.disabled = false;
+                    genOfferBtn.disabled = false;
+                }
+            }
+        };
+        
+        try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            offerCreated = true;
+            // 如果ice收集已经完成，则立刻显示
+            if (iceGatheringComplete) {
+                const fullSDP = pc.localDescription.sdp;
+                offerSdpText.value = fullSDP;
+                creatorStatus.innerText = '✅ 邀请码已生成！复制发给对方。';
+                copyOfferBtn.disabled = false;
+                genOfferBtn.disabled = false;
+            } else {
+                creatorStatus.innerText = '⏳ 正在收集网络信息，请稍后...';
+            }
+        } catch (err) {
+            console.error('创建offer失败', err);
+            creatorStatus.innerText = '❌ 创建邀请码失败，请重试';
+            genOfferBtn.disabled = false;
+        }
+    }
+    
+    // 创建者：提交对方answer
+    async function submitAnswer(answerSdp) {
+        if (!peerConnection) {
+            creatorStatus.innerText = '❌ 连接已失效，请重新生成邀请码';
+            return;
+        }
+        if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+            creatorStatus.innerText = '⚠️ 已经建立过应答，请勿重复提交';
+            return;
+        }
+        try {
+            const answerDesc = new RTCSessionDescription({ type: 'answer', sdp: answerSdp });
+            await peerConnection.setRemoteDescription(answerDesc);
+            creatorStatus.innerText = '🔐 应答码已生效，正在建立加密通道...';
+            submitAnswerBtn.disabled = true;
+            // 等待DataChannel开启
+            // 如果已经开启则触发 onopen
+        } catch (err) {
+            console.error('设置应答失败', err);
+            creatorStatus.innerText = '❌ 应答码无效，请检查是否完整复制';
+            submitAnswerBtn.disabled = false;
+        }
+    }
+    
+    // ---------- 加入者流程 ----------
+    async function handleOfferAndCreateAnswer(offerSdp) {
+        closeConnection();
+        joinerStatus.innerText = '⏳ 解析邀请码并生成应答...';
+        processOfferBtn.disabled = true;
+        copyAnswerBtn.disabled = true;
+        
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        peerConnection = pc;
+        
+        // 监听远端DataChannel
+        pc.ondatachannel = (event) => {
+            dataChannel = event.channel;
+            dataChannel.onopen = () => {
+                console.log('Joiner: DataChannel opened');
+                appendSystemMessage('🔗 数据通道已打开，通信已加密');
+                enterChatRoom();
+            };
+            dataChannel.onclose = () => {
+                if (isConnected) appendSystemMessage('⚠️ 连接已断开');
+                isConnected = false;
+            };
+            dataChannel.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'msg') {
+                        appendChatMessage(data.from || '对方', data.text, false);
+                    }
+                } catch(e) {
+                    appendChatMessage('对方', event.data, false);
+                }
+            };
+        };
+        
+        let iceComplete = false;
+        let answerSet = false;
+        
+        pc.onicecandidate = (event) => {
+            if (event.candidate === null) {
+                iceComplete = true;
+                if (answerSet && peerConnection && peerConnection.localDescription) {
+                    const fullAnswer = peerConnection.localDescription.sdp;
+                    answerSdpText.value = fullAnswer;
+                    copyAnswerBtn.disabled = false;
+                    joinerStatus.innerText = '✅ 应答码已生成！复制发给对方，等待连接...';
+                    processOfferBtn.disabled = false;
+                }
+            }
+        };
+        
+        try {
+            const offerDesc = new RTCSessionDescription({ type: 'offer', sdp: offerSdp });
+            await pc.setRemoteDescription(offerDesc);
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            answerSet = true;
+            if (iceComplete) {
+                const fullAnswer = pc.localDescription.sdp;
+                answerSdpText.value = fullAnswer;
+                copyAnswerBtn.disabled = false;
+                joinerStatus.innerText = '✅ 应答码已生成，复制发给对方';
+                processOfferBtn.disabled = false;
+            } else {
+                joinerStatus.innerText = '⏳ 正在收集本地网络信息，应答码即将生成...';
+            }
+        } catch (err) {
+            console.error('处理offer失败', err);
+            joinerStatus.innerText = '❌ 邀请码无效或格式错误，请重新复制';
+            processOfferBtn.disabled = false;
+        }
+    }
+    
+    // ---------- 发送聊天消息 ----------
+    function sendMessage(text) {
+        if (!text.trim()) return;
+        if (!isConnected || !dataChannel || dataChannel.readyState !== 'open') {
+            appendSystemMessage('⚠️ 连接未就绪，无法发送消息');
+            return;
+        }
+        const msgObj = {
+            type: 'msg',
+            from: '我',
+            text: text.trim()
+        };
+        dataChannel.send(JSON.stringify(msgObj));
+        appendChatMessage('我', text.trim(), true);
+        chatInput.value = '';
+    }
+    
+    // ---------- 界面交互 & 模式切换 ----------
+    function switchMode(mode) {
+        currentMode = mode;
+        // 更新按钮样式
+        modeBtns.forEach(btn => {
+            const m = btn.getAttribute('data-mode');
+            if (m === mode) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        
+        if (mode === 'creator') {
+            creatorPanel.classList.remove('hidden');
+            joinerPanel.classList.add('hidden');
+            // 重置状态
+            closeConnection();
+            offerSdpText.value = '';
+            answerInput.value = '';
+            copyOfferBtn.disabled = true;
+            submitAnswerBtn.disabled = true;
+            creatorStatus.innerText = '⚙️ 点击【生成邀请码】开始';
+            genOfferBtn.disabled = false;
+        } else {
+            creatorPanel.classList.add('hidden');
+            joinerPanel.classList.remove('hidden');
+            closeConnection();
+            offerInput.value = '';
+            answerSdpText.value = '';
+            copyAnswerBtn.disabled = true;
+            joinerStatus.innerText = '🕊️ 粘贴对方的邀请码，点击解析';
+            processOfferBtn.disabled = false;
+        }
+        // 确保隐藏聊天区
+        setupContainer.classList.remove('hidden');
+        chatContainer.classList.add('hidden');
+        isConnected = false;
+    }
+    
+    // 监听模式切换
+    modeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.getAttribute('data-mode');
+            if (mode === currentMode) return;
+            switchMode(mode);
+        });
+    });
+    
+    // 创建者事件
+    genOfferBtn.addEventListener('click', createOfferWithFullIce);
+    copyOfferBtn.addEventListener('click', () => {
+        offerSdpText.select();
+        navigator.clipboard.writeText(offerSdpText.value).then(() => {
+            creatorStatus.innerText = '📋 邀请码已复制！发送给对方';
+        }).catch(() => alert('手动复制即可'));
+    });
+    submitAnswerBtn.addEventListener('click', () => {
+        const answer = answerInput.value.trim();
+        if (!answer) {
+            creatorStatus.innerText = '❌ 请粘贴对方提供的应答码';
+            return;
+        }
+        if (!peerConnection) {
+            creatorStatus.innerText = '❌ 请先生成邀请码';
+            return;
+        }
+        submitAnswer(answer);
+    });
+    // 监听answer输入框变化启用提交按钮
+    answerInput.addEventListener('input', () => {
+        submitAnswerBtn.disabled = (answerInput.value.trim() === '');
+    });
+    
+    // 加入者事件
+    processOfferBtn.addEventListener('click', () => {
+        const offer = offerInput.value.trim();
+        if (!offer) {
+            joinerStatus.innerText = '❌ 请粘贴对方的邀请码';
+            return;
+        }
+        handleOfferAndCreateAnswer(offer);
+    });
+    copyAnswerBtn.addEventListener('click', () => {
+        answerSdpText.select();
+        navigator.clipboard.writeText(answerSdpText.value).then(() => {
+            joinerStatus.innerText = '📋 应答码已复制！发给对方，等待连接建立';
+        }).catch(() => alert('手动复制即可'));
+    });
+    
+    // 聊天发送
+    sendChatBtn.addEventListener('click', () => {
+        sendMessage(chatInput.value);
+    });
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage(chatInput.value);
+    });
+    
+    // 初始默认创建者模式
+    switchMode('creator');
+    
+    // 页面关闭前清理连接
+    window.addEventListener('beforeunload', () => {
+        if (dataChannel) dataChannel.close();
+        if (peerConnection) peerConnection.close();
+    });
+</script>
+</body>
+</html>
